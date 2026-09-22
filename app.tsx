@@ -189,6 +189,13 @@ function formatAction(piece: Piece, from: Position, move: Move, target: Piece | 
   return `${prefix} thua ${defender} tại ${squareName(move.row, move.col)}`;
 }
 
+function winnerFromResult(result: string | null): Player | null {
+  if (!result) return null;
+  if (result.includes(PLAYER_FULL.red)) return "red";
+  if (result.includes(PLAYER_FULL.blue)) return "blue";
+  return null;
+}
+
 function applyMove(game: GameState, from: Position, move: Move): GameState {
   const board = cloneBoard(game.board);
   const piece = board[from.row][from.col];
@@ -360,9 +367,11 @@ export function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [winEffect, setWinEffect] = useState<string | null>(null);
 
   const game = record?.state ?? createGame();
   const seat = seatForPlayer(record, playerId);
+  const winner = winnerFromResult(winEffect);
   const canMove = seat === game.turn && !game.result && !isSaving && status === "connected";
   const moves = useMemo(
     () => (selected && canMove ? legalMoves(game, selected) : []),
@@ -423,6 +432,24 @@ export function App() {
       supabase.removeChannel(channel);
     };
   }, [playerId, roomId]);
+
+  useEffect(() => {
+    if (!game.result || !record || status !== "connected") {
+      if (!game.result) setWinEffect(null);
+      return;
+    }
+
+    setWinEffect(game.result);
+
+    const timer = window.setTimeout(() => {
+      persistState(createGame()).finally(() => {
+        setSelected(null);
+        setWinEffect(null);
+      });
+    }, 4200);
+
+    return () => window.clearTimeout(timer);
+  }, [game.result, record?.id, record?.version, status]);
 
   async function persistState(nextState: GameState) {
     if (!supabase || !record) return;
@@ -488,6 +515,13 @@ export function App() {
   async function resetGame() {
     await persistState(createGame());
     setSelected(null);
+    setWinEffect(null);
+  }
+
+  function createRoom() {
+    const url = new URL(window.location.href);
+    url.searchParams.set("room", makeRandomId(ROOM_ID_LENGTH));
+    window.location.assign(url.toString());
   }
 
   async function copyInviteLink() {
@@ -505,6 +539,9 @@ export function App() {
           <h1>Oẳn tù tì chiến thuật</h1>
         </div>
         <div className="top-actions">
+          <button className="reset-button primary-action" type="button" onClick={createRoom}>
+            Tạo phòng
+          </button>
           <button className="reset-button" type="button" onClick={copyInviteLink}>
             {copied ? "Đã copy" : "Mời bạn chơi"}
           </button>
@@ -665,6 +702,23 @@ export function App() {
           </aside>
         </section>
       )}
+
+      {winEffect ? (
+        <div className={`win-overlay ${winner ?? ""}`} role="status" aria-live="polite">
+          <div className="burst-ring" />
+          <div className="confetti-field" aria-hidden="true">
+            {Array.from({ length: 28 }, (_, index) => (
+              <span key={index} style={{ "--i": index } as React.CSSProperties} />
+            ))}
+          </div>
+          <div className="win-card">
+            <p className="eyebrow">Chiến thắng</p>
+            <h2>{winner ? `${PLAYER_FULL[winner]} thắng!` : "Có người thắng!"}</h2>
+            <p>{winEffect}</p>
+            <span>Tự động tạo ván mới...</span>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
@@ -764,6 +818,11 @@ function OttStyles() {
       .reset-button:active {
         transform: translate(4px, 4px);
         box-shadow: none;
+      }
+
+      .primary-action {
+        background: #1d231f;
+        color: #fffaf0;
       }
 
       .setup-card {
@@ -1072,6 +1131,143 @@ function OttStyles() {
 
       .history li.blue::marker {
         color: #23867b;
+      }
+
+      .win-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        overflow: hidden;
+        background: rgba(29, 35, 31, 0.72);
+        animation: overlay-in 260ms ease-out both;
+      }
+
+      .burst-ring {
+        position: absolute;
+        width: min(72vmin, 620px);
+        aspect-ratio: 1;
+        border: 4px solid rgba(255, 250, 240, 0.82);
+        border-radius: 999px;
+        animation: burst-ring 1300ms ease-out infinite;
+      }
+
+      .confetti-field {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      .confetti-field span {
+        --spread: calc((var(--i) - 14) * 3.4vw);
+        position: absolute;
+        top: -24px;
+        left: calc(50% + var(--spread));
+        width: 10px;
+        height: 18px;
+        border: 2px solid rgba(29, 35, 31, 0.42);
+        border-radius: 3px;
+        background: #f4c84f;
+        transform: rotate(calc(var(--i) * 17deg));
+        animation: confetti-fall 1800ms ease-in infinite;
+        animation-delay: calc((var(--i) % 9) * 110ms);
+      }
+
+      .confetti-field span:nth-child(3n) {
+        background: #d94d3d;
+      }
+
+      .confetti-field span:nth-child(3n + 1) {
+        background: #23867b;
+      }
+
+      .win-card {
+        position: relative;
+        width: min(520px, 100%);
+        border: 3px solid #1d231f;
+        border-radius: 8px;
+        padding: 26px;
+        background: #fffaf0;
+        box-shadow: 9px 9px 0 rgba(29, 35, 31, 0.42);
+        text-align: center;
+        animation: win-pop 520ms cubic-bezier(.2, 1.24, .4, 1) both;
+      }
+
+      .win-card h2 {
+        margin: 0;
+        font-size: clamp(2rem, 8vw, 4.2rem);
+        line-height: 0.95;
+      }
+
+      .win-card p:not(.eyebrow) {
+        margin: 14px 0 12px;
+        color: #3f4742;
+        font-weight: 800;
+        line-height: 1.45;
+      }
+
+      .win-card span {
+        display: inline-block;
+        border: 2px solid #1d231f;
+        border-radius: 999px;
+        padding: 8px 12px;
+        background: #fff2cf;
+        font-weight: 900;
+      }
+
+      .win-overlay.red .win-card {
+        border-color: #a3382c;
+      }
+
+      .win-overlay.blue .win-card {
+        border-color: #166b64;
+      }
+
+      @keyframes overlay-in {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes win-pop {
+        from {
+          opacity: 0;
+          transform: translateY(18px) scale(0.92);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes burst-ring {
+        0% {
+          opacity: 0.8;
+          transform: scale(0.42);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(1.2);
+        }
+      }
+
+      @keyframes confetti-fall {
+        0% {
+          opacity: 0;
+          transform: translateY(0) rotate(calc(var(--i) * 17deg));
+        }
+        16% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+          transform: translateY(112vh) translateX(calc((var(--i) - 14) * 5px)) rotate(calc(var(--i) * 34deg));
+        }
       }
 
       @media (max-width: 900px) {
