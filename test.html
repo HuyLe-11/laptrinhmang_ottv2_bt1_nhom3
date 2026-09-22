@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Switch with can-toggle</title>
+  <style>
+    :root {
+      color: #1c1c1c;
+      background: #f4efe5;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { display: grid; min-height: 100vh; margin: 0; padding: 1rem; place-items: center; }
+    main { width: min(40rem, 100%); }
+    main { text-align: center; }
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding: 0.55rem 1rem;
+      border: 2px solid #1c1c1c;
+      border-radius: 6px;
+      background: #ebe4d5;
+      box-shadow: 2px 2px 0 #1c1c1c;
+      color: #1c1c1c;
+      cursor: pointer;
+      font: 700 0.8rem/1 ui-monospace, monospace;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      transition: transform 120ms, box-shadow 120ms, background 120ms, color 120ms;
+    }
+    .toggle:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 #1c1c1c; }
+    .toggle:active { transform: translate(2px, 2px); box-shadow: none; }
+    .toggle.toggled { background: #274b9e; color: #f4efe5; }
+    .dot {
+      width: 0.625rem;
+      height: 0.625rem;
+      border: 1px solid rgba(0, 0, 0, 0.35);
+      border-radius: 999px;
+      background: #79766f;
+    }
+    .toggle.toggled .dot { background: #e8a63a; box-shadow: 0 0 0 3px rgba(232, 166, 58, 0.25); }
+    .on-label { display: none; }
+    .toggle.toggled .off-label { display: none; }
+    .toggle.toggled .on-label { display: inline; }
+  </style>
+</head>
+<body>
+  <main>
+    <button id="ph-docs-toggle-demo" class="toggle" type="button" can-toggle>
+      <span class="dot" aria-hidden="true"></span>
+      <span class="off-label">off</span>
+      <span class="on-label">on</span>
+    </button>
+  </main>
+
+  <script type="module">
+    import { playhtml } from "playhtml";
+
+    // can-toggle adds or removes the toggled class.
+
+    await playhtml.init({ developmentMode: true });
+  </script>
+</body>
+</html>
